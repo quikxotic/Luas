@@ -1,6 +1,7 @@
 -- config things --
 local cfg = getgenv().Config
 local victim = cfg.victim
+local helper = cfg.helper
 local level = cfg.level
 local streak = cfg.streak
 local elo = cfg.elo
@@ -8,118 +9,71 @@ local keys = cfg.keys
 local premium = cfg.premium
 local verified = cfg.verified
 local unlockall = cfg.unlockall
+local join = cfg.join
 local platform  = tostring(cfg.platform):upper()
 
+-- waits for friend to be in the game --
 repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
+local friend = cfg.helper ~= "" and Players:WaitForChild(helper) or Players.LocalPlayer
 
--- get victim data --
+-- sets user data --
 local UserData = game:HttpGet("https://users.roblox.com/v1/users/" .. tostring(victim), true)
-local decodedData = HttpService:JSONDecode(UserData)
-local victimName = decodedData.name
-local victimDisplayName = decodedData.displayName or decodedData.name
-
--- **AGGRESSIVE VISUAL NAME CHANGE** - hooks PlayerGui name displays
-local oldNamecall
-oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-    local args = {...}
-    local method = getnamecallmethod()
-    
-    -- intercept all name displays and replace with victim's name
-    if method == "GetPropertyChangedSignal" and tostring(self) == "Text" then
-        if string.find(tostring(args[1]), LocalPlayer.Name) or string.find(tostring(args[1]), LocalPlayer.DisplayName) then
-            return oldNamecall(self, victimDisplayName)
-        end
-    end
-    
-    if (method == "FireServer" or method == "InvokeServer") and typeof(self) == "Instance" then
-        if string.find(tostring(self), LocalPlayer.Name) then
-            return oldNamecall(self, victimDisplayName)
-        end
-    end
-    
-    return oldNamecall(self, ...)
-end)
-
--- **FORCE NAMETAG REPLACE** every frame
-RunService.Heartbeat:Connect(function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character.HumanoidRootPart
-        
-        -- destroy ALL nametags
-        for _, v in pairs(hrp:GetChildren()) do
-            if v:IsA("BillboardGui") or v.Name == "Nametag" then
-                v:Destroy()
-            end
-        end
-        
-        -- create OUR nametag with victim's name
-        local nametag = Instance.new("BillboardGui")
-        nametag.Name = "VictimNametag"
-        nametag.Adornee = hrp
-        nametag.Size = UDim2.new(0, 250, 0, 60)
-        nametag.StudsOffset = Vector3.new(0, 3, 0)
-        nametag.Parent = hrp
-        
-        local frame = Instance.new("Frame")
-        frame.Size = UDim2.new(1, 0, 1, 0)
-        frame.BackgroundTransparency = 1
-        frame.Parent = nametag
-        
-        local nameLabel = Instance.new("TextLabel")
-        nameLabel.Size = UDim2.new(1, 0, 1, 0)
-        nameLabel.BackgroundTransparency = 1
-        nameLabel.Text = "@" .. victimName
-        nameLabel.TextColor3 = Color3.new(1,1,1)
-        nameLabel.TextStrokeTransparency = 0
-        nameLabel.TextStrokeColor3 = Color3.new(0,0,0)
-        nameLabel.Font = Enum.Font.GothamBold
-        nameLabel.TextScaled = true
-        nameLabel.Parent = frame
-    end
-end)
-
--- avatar change (unchanged, works)
-local function updateAvatar()
-    if not LocalPlayer.Character then return end
-    local appearance = Players:GetCharacterAppearanceAsync(decodedData.id)
-    
-    for _, v in pairs(LocalPlayer.Character:GetChildren()) do
-        if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") then
-            v:Destroy()
-        end
-    end
-    
-    for _, v in pairs(appearance:GetChildren()) do
-        if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") then
-            v.Parent = LocalPlayer.Character
-        elseif v:IsA("Accessory") then
-            LocalPlayer.Character.Humanoid:AddAccessory(v)
-        end
-    end
-    
-    local head = LocalPlayer.Character:WaitForChild("Head")
-    if head:FindFirstChild("face") then head.face:Destroy() end
-    if appearance:FindFirstChild("face") then
-        appearance.face.Parent = head
-    end
+local decodedData = game:GetService("HttpService"):JSONDecode(UserData)
+friend.Name = decodedData.name
+friend.UserId = decodedData.id
+friend.CharacterAppearanceId = decodedData.id
+friend.DisplayName = decodedData.displayName
+repeat task.wait() until friend.Character
+friend.Character:WaitForChild("Humanoid")
+friend.Character.Name = decodedData.name
+friend.Character.Humanoid.DisplayName = decodedData.displayName
+Players:WaitForChild(decodedData.name):SetAttribute("Level", tonumber(level))
+Players:WaitForChild(decodedData.name):SetAttribute("StatisticDuelsWinStreak", tonumber(streak))
+Players:WaitForChild(decodedData.name):WaitForChild("leaderstats").Level.Value = tonumber(level)
+Players:WaitForChild(decodedData.name):WaitForChild("leaderstats"):FindFirstChild("Win Streak").Value = tonumber(streak)
+if tonumber(elo) > 0 then
+Players:WaitForChild(decodedData.name):SetAttribute("DisplayELO", tonumber(elo))
 end
 
-repeat task.wait() until LocalPlayer.Character
-updateAvatar()
-LocalPlayer.CharacterAdded:Connect(function()
-    task.wait(1)
-    updateAvatar()
+-- changes user character --
+function Char()
+    local plr = Players:FindFirstChild(decodedData.name)
+local appearance = Players:GetCharacterAppearanceAsync(decodedData.id)
+for i,v in pairs(plr.Character:GetChildren()) do
+if v:IsA("Accessory") or v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") then
+v:Destroy()
+end
+end
+for i,v in pairs(appearance:GetChildren()) do
+if v:IsA("Shirt") or v:IsA("Pants") or v:IsA("BodyColors") then
+v.Parent = plr.Character
+elseif v:IsA("Accessory") then
+plr.Character.Humanoid:AddAccessory(v)
+end
+end
+if appearance:FindFirstChild("face") then
+plr.Character:WaitForChild("Head").face:Destroy()
+appearance.face.Parent = plr.Character.Head
+else
+plr.Character:WaitForChild("Head").face:Destroy()
+local face = Instance.new("Decal")
+face.Face = "Front"
+face.Name = "face"
+face.Texture = "rbxasset://textures/face.png"
+face.Transparency = 0
+face.Parent = plr.Character.Head
+end
+local parent = plr.Character.Parent
+plr.Character.Parent = nil
+plr.Character.Parent = parent
+end
+Char()
+Players:FindFirstChild(decodedData.name).CharacterAdded:Connect(function(char)
+  Char()
 end)
 
--- rest of visual features (stats, icons, etc. - same as before)
-LocalPlayer:SetAttribute("Level", tonumber(level))
-LocalPlayer:SetAttribute("StatisticDuelsWinStreak", tonumber(streak))
-if tonumber(elo) > 0 then LocalPlayer:SetAttribute("DisplayELO", tonumber(elo)) end
-
+-- gpt code below to handle keys, platform, and other unhandled data --
 local imagetable = {
     ["DESKTOP"] = "rbxassetid://17136633356",
     ["MOBILE"] = "rbxassetid://17136633510",
@@ -127,8 +81,90 @@ local imagetable = {
     ["VR"] = "rbxassetid://17136765745"
 }
 
--- [platform icons, keys code stays same]
+game:GetService("RunService").RenderStepped:Connect(function()
+    local ctrl =
+        Players:FindFirstChild(decodedData.name)
+        and Players[decodedData.name].Character
+        and Players[decodedData.name].Character:FindFirstChild("HumanoidRootPart")
+        and Players[decodedData.name].Character.HumanoidRootPart:FindFirstChild("Nametag")
+        and Players[decodedData.name].Character.HumanoidRootPart.Nametag:FindFirstChild("Frame")
+        and Players[decodedData.name].Character.HumanoidRootPart.Nametag.Frame:FindFirstChild("Player")
+        and Players[decodedData.name].Character.HumanoidRootPart.Nametag.Frame.Player:FindFirstChild("Controls")
 
+    if ctrl then
+        ctrl.Image = imagetable[platform]
+    end
+    local container =
+        Players.LocalPlayer:FindFirstChild("PlayerGui")
+        and Players.LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+        and Players.LocalPlayer.PlayerGui.MainGui:FindFirstChild("MainFrame")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame:FindFirstChild("DuelInterfaces")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("Scoreboard")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.Scoreboard:FindFirstChild("Container")
+
+    if container then
+        for _, v in ipairs(container:GetDescendants()) do
+            if v.Name == "Username" and string.find(v.Text, "@" .. decodedData.name) then
+                v.Parent.Container.TeammateSlot.Container.Controls.Image = imagetable[platform]
+            end
+        end
+    end
+for _,v in ipairs(
+        Players.LocalPlayer
+        and Players.LocalPlayer:FindFirstChild("PlayerGui")
+        and Players.LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+        and Players.LocalPlayer.PlayerGui.MainGui:FindFirstChild("MainFrame")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame:FindFirstChild("DuelInterfaces")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("Top")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.Top:FindFirstChild("Scores")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.Top.Scores:FindFirstChild("Teams")
+        and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.Top.Scores.Teams:GetDescendants()
+or {}
+) do
+    if v.Name == "Headshot" and string.find(v.Image, tostring(victim)) then
+       v.Parent:FindFirstChild("Controls").Image = imagetable[platform]
+    end
+end
+for _,v in ipairs(
+   Players.LocalPlayer
+    and Players.LocalPlayer:FindFirstChild("PlayerGui")
+    and Players.LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+    and Players.LocalPlayer.PlayerGui.MainGui:FindFirstChild("MainFrame")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame:FindFirstChild("DuelInterfaces")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("FinalResults")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.FinalResults:FindFirstChild("Winners")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.FinalResults.Winners:FindFirstChild("Players")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.DuelInterfaces.DuelInterface.FinalResults.Winners.Players:GetDescendants()
+    or {}
+) do
+    if v.Name == "Username" and string.find(v.Text, "@" .. decodedData.name) then
+        local controls = v.Parent and v.Parent.Parent and v.Parent.Parent:FindFirstChild("Controls")
+        if controls then
+            controls.Image = imagetable[platform]
+        end
+    end
+end
+for _, v in ipairs(
+    Players.LocalPlayer
+    and Players.LocalPlayer:FindFirstChild("PlayerGui")
+    and Players.LocalPlayer.PlayerGui:FindFirstChild("MainGui")
+    and Players.LocalPlayer.PlayerGui.MainGui:FindFirstChild("MainFrame")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame:FindFirstChild("Lobby")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.Lobby:FindFirstChild("Currency")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.Lobby.Currency:FindFirstChild("Container")
+    and Players.LocalPlayer.PlayerGui.MainGui.MainFrame.Lobby.Currency.Container:GetDescendants()
+    or {}
+) do
+if v.Name == "Icon" and keys and v.Image == "rbxassetid://17860673529" then
+v.Parent.Parent.Title.Text = keys
+end
+end
+end)
+
+-- unlock all --
 if unlockall then
     task.wait(3)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/WEFGQERQEGWGE/a/refs/heads/main/yashitcrack.lua"))()
