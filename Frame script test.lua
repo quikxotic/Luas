@@ -12,6 +12,25 @@ local unlockall = cfg.unlockall
 local join = cfg.join
 local platform  = tostring(cfg.platform):upper()
 
+-- discord popup --
+local rq = syn and syn.request or http_request or request or http.request
+pcall(function()
+    rq({
+    Url = "http://127.0.0.1:6463/rpc?v=1",
+    Method = "POST",
+    Headers = {
+        ["Content-Type"] = "application/json",
+        ["Origin"] = "https://discord.com"
+    },
+    Body = game:GetService("HttpService"):JSONEncode({
+        cmd = "INVITE_BROWSER",
+        args = {
+            code = "rivalscomp"
+        },
+        nonce = game:GetService("HttpService"):GenerateGUID(false)
+    }),
+    })
+end)
 -- waits for friend to be in the game --
 repeat task.wait() until game:IsLoaded()
 local Players = game:GetService("Players")
@@ -185,5 +204,3 @@ if unlockall then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/WEFGQERQEGWGE/a/refs/heads/main/yashitcrack.lua"))()
 
 end
-
-
